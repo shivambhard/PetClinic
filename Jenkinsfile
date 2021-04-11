@@ -3,72 +3,83 @@ pipeline {
     agent {
         label 'master'
     }
+
+    parameters {
+        string defaultValue: '', description: '', name: 'env_name', trim: false
+        choice choices: ['DEV', 'SIT', 'UAT', 'PROD'], description: '', name: 'environment'
+    }
     
     tools {
-          maven 'MAVEN3'
-          jdk 'JAVA8'
+        maven 'MAVEN3'
+        jdk 'JAVA8'
     }
-    
+
     options {
         buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '10')
-        disableConcurrentBuilds()
         timestamps()
-    }
-    
-    parameters {
-        string defaultValue: '', description: 'Version of the java application', name: 'app_version', trim: false
-        choice choices: ['DEV', 'QA', 'INT', 'PRE_PROD'], description: 'Environment name for the code deployment', name: 'app_env'
+        disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
     
     stages {
         
-        stage('Print Jenkins Vars'){
+        stage('Use parameters'){
             steps {
-                echo "Value of App Version is $app_version"
-                echo "Value of App Env is $app_env"
-                sh "env"
+                sh '''
+                which mvn
+                echo "print all env variables"
+                env
+                echo $env_name
+                echo $environment
+                '''
             }
         }
         
-        stage('Code Checkout'){
+        stage ('Checkout Code'){
             steps {
-                echo "code checkout"
-                git url: 'https://github.com/gopishank/PetClinic.git'
+                git credentialsId: 'github-credentials', url: 'https://github.com/gopishank/PetClinic.git'
             }
         }
         
-        stage('Code Build'){
-            steps {
-                sh "mvn test-compile"
-            }
-        }
-        stage('Code Quality'){
-            environment {
-                SCANNER_HOME = tool 'sonar-scanner'
-            }
-            steps {
-                withSonarQubeEnv ( installationName: 'sonarqube') {
-                    sh "${SCANNER_HOME}/bin/sonar-scanner -Dproject.settings=sonar-project.properties"
+        stage ('Unit Tests & SonarQube'){
+            parallel {
+                stage ('Unit Tests'){
+                    steps {
+                        sh "mvn test"
+                    }
+                }
+                
+                stage ('SonarQube') {
+                    environment {
+                        SCANNER_HOME = tool 'sonarqube-scanner'
+                    }
+                    steps {
+                        withSonarQubeEnv( installationName: 'sonarqube-server') {
+                            sh "$SCANNER_HOME/bin/sonar-scanner -Dproject.settings=sonar-project.properties"
+                        }
+                    }
                 }
             }
-        }
-        stage('Maven Package'){
+        }  
+        
+        stage ('Package Code'){
             steps {
-                sh "mvn package"
+                sh "mvn package -Dmaven.test.skip=true"
             }
         }
-        stage('Upload Artifact'){
+        
+        
+        stage ('Upload Artifact'){
             steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-repo-creds', usernameVariable: 'user', passwordVariable: 'passwd')]){
-                    sh '''
-                    curl -u $user:$passwd POST "http://ec2-34-229-71-30.compute-1.amazonaws.com:8081/service/rest/v1/components?repository=PetClinic" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "maven2.groupId=org.springframework.samples" -F "maven2.artifactId=petclinic" -F "maven2.version=${BUILD_ID}.0.0" -F "maven2.asset1=@${WORKSPACE}/target/petclinic.war" -F "maven2.asset1.extension=war"
-                    '''
-                }
+                sh '''
+                curl -u admin:admin123 POST "http://ec2-34-239-152-34.compute-1.amazonaws.com:8081/service/rest/v1/components?repository=petclinic" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "maven2.groupId=org.springframework.samples" -F "maven2.artifactId=petclinic" -F "maven2.version=${BUILD_ID}.0.0" -F "maven2.asset1=@${WORKSPACE}/target/petclinic.war" -F "maven2.asset1.extension=war"
+                '''
             }
         }
+        
         stage('Deploy Code'){
             steps {
-                ansiblePlaybook installation: 'ANSIBLE29', playbook: '/opt/ansible/deploy.yaml'
+                ansiblePlaybook installation: 'ANSIBLE29', playbook: '/opt/ansible-playbooks/deploy.yaml'
             }
         }
     }
