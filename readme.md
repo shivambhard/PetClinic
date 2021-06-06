@@ -10,7 +10,7 @@
 	 ./mvnw tomcat7:run
 ```
 
-You can then access petclinic here: http://localhost:9966/petclinic/
+You can then access petclinick here: http://localhost:9966/petclinic/
 
 ## In case you find a bug/suggested improvementa for Spring Petclinic
 Our issue tracker is available here: https://github.com/spring-projects/spring-petclinic/issues
