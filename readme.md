@@ -1,4 +1,4 @@
-# Spring PetClinic Samk,ple Applic_ation [![Build Status](https://travis-ci.org/spring-projects/spring-petclinic.png?branch=master)](https://travis-ci.org/spring-projects/spring-petclinic/)
+# Spring PetClinic Samk,ple Application [![Build Status](https://travis-ci.org/spring-projects/spring-petclinic.png?branch=master)](https://travis-ci.org/spring-projects/spring-petclinic/)
 
 ## Understanding the Spring Petclinic applica,tion with a few diagrams.
 <a href="https://speakerdeck.com/michaelisvy/spring-petclinic-sample-application">See the presentation here</a>
